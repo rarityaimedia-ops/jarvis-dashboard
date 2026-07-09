@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+:root {
+  --bg-deep: #070604;
+  --bg: #0a0a0a;
+  --panel: #141210;
+  --gold: #d4af37;
+  --gold-dim: #8a7326;
+  --text: #e8e4d8;
+  --muted: #8a8578;
+  --hairline: #24211b;
+  --gold-border: #4a3f1e;
+  --warning: #e3b341;
+  --emerald: #34d399;
+  --failure: #f87171;
+}
+
+@theme inline {
+  --color-bg-deep: var(--bg-deep);
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-gold: var(--gold);
+  --color-gold-dim: var(--gold-dim);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-gold-border: var(--gold-border);
+  --color-warning: var(--warning);
+  --color-emerald: var(--emerald);
+  --color-failure: var(--failure);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  /* fine FUI grid over deep black — opacity ≤0.04 per DESIGN.md */
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(212, 175, 55, 0.035) 0 1px,
+      transparent 1px 48px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(212, 175, 55, 0.035) 0 1px,
+      transparent 1px 48px
+    ),
+    var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+/* one slow scanline sweep — transform-only, compositor thread */
+body::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 12vh;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(212, 175, 55, 0.03),
+    transparent
+  );
+  pointer-events: none;
+  z-index: 40;
+  animation: scanline 16s linear infinite;
+}
+@keyframes scanline {
+  from {
+    transform: translateY(-15vh);
+  }
+  to {
+    transform: translateY(115vh);
+  }
+}
+
+/* HUD panel: sharp corners, hairline border, 1.5px gold corner brackets (14px arms) */
+.hud-panel {
+  position: relative;
+  border-radius: 0;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+}
+.hud-panel::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold)),
+    linear-gradient(var(--gold), var(--gold));
+  background-repeat: no-repeat;
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+  background-size:
+    14px 1.5px, 1.5px 14px,
+    14px 1.5px, 1.5px 14px,
+    14px 1.5px, 1.5px 14px,
+    14px 1.5px, 1.5px 14px;
+}
+
+/* bottom ticker marquee — content duplicated once, track slides half its width */
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 60s linear infinite;
+  will-change: transform;
+}
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* boot: panels materialize staggered after the boot overlay clears */
+.boot-stagger > * {
+  animation: materialize 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.boot-stagger > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.boot-stagger > *:nth-child(3) {
+  animation-delay: 180ms;
+}
+.boot-stagger > *:nth-child(4) {
+  animation-delay: 270ms;
+}
+.boot-stagger > *:nth-child(5) {
+  animation-delay: 360ms;
+}
+@keyframes materialize {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 3D brain node tooltip (react-force-graph .scene-tooltip inner span) */
+.brain-tip {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid var(--gold-border);
+  background: rgba(7, 6, 4, 0.9);
+  color: var(--gold);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* vitals gauges */
+.gauge-arc {
+  transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
