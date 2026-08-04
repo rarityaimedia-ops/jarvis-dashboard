@@ -1,27 +1,32 @@
 "use client";
 
-// v3 HUD layout: BRAIN | TRADING | OPS tabs. All polling lives in
-// DataPoller → zustand. The BRAIN tab stays mounted (hidden) when
-// inactive so the WebGL scene keeps its camera/physics; brain-3d pauses
-// its render loop off-tab.
+// Command-center shell: fixed sidebar + (topbar / content / bottom bar). The
+// whole frame is 100vh, overflow hidden — panels scroll internally, the page
+// body never does. The BRAIN deck stays mounted (hidden off-tab) so the WebGL
+// core keeps its camera/physics; TRADING/OPS mount their own content and still
+// render on the legacy warm tokens (their reskin is a later pass).
 
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useJarvis, type Tab } from "@/lib/store";
 import DataPoller from "@/components/data-poller";
+import AlertsWatcher from "@/components/alerts-watcher";
 import Boot from "@/components/boot";
 import Flow from "@/components/flow";
 import Palette from "@/components/palette";
-import GraphModes from "@/components/graph-modes";
-import QueryBox from "@/components/query-box";
-import { HudHeader, LeftRail, RightRail, Ticker, TABS } from "@/components/hud";
+import Sidebar from "@/components/sidebar";
+import Topbar from "@/components/topbar";
+import HealthVerdict from "@/components/health-verdict";
+import BottomBar from "@/components/bottom-bar";
+import CommandCenter from "@/components/command-center";
+import { TABS } from "@/components/hud";
 import { sfx } from "@/lib/audio";
 
 // heavy chart bundles load only when their tab first opens
 const TradingPanel = dynamic(() => import("@/components/trading"), {
   ssr: false,
   loading: () => (
-    <div className="grid flex-1 place-items-center font-mono text-xs text-muted">
+    <div className="grid h-full flex-1 place-items-center font-jetbrains-mono text-xs text-text-dim">
       loading trading module…
     </div>
   ),
@@ -31,7 +36,6 @@ const OpsPanel = dynamic(() => import("@/components/ops"), { ssr: false });
 export default function Dashboard() {
   const booted = useJarvis((s) => s.booted);
   const tab = useJarvis((s) => s.tab);
-  const wakeMode = useJarvis((s) => s.wakeMode);
 
   // keys 1/2/3 switch tabs (ignored while typing or with modifiers)
   useEffect(() => {
@@ -55,43 +59,30 @@ export default function Dashboard() {
   return (
     <>
       <DataPoller />
+      <AlertsWatcher />
       <Boot />
       <Flow />
       <Palette />
-      <main
-        className={`mx-auto flex h-screen w-full max-w-[1720px] flex-col gap-3 px-4 py-3 ${
-          booted ? "boot-stagger" : "invisible"
+      <div
+        className={`flex h-screen w-full overflow-hidden text-ink-cc ${
+          booted ? "" : "invisible"
         }`}
       >
-        <HudHeader />
-
-        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[230px_minmax(0,1fr)_270px]">
-          <LeftRail />
-
-          {/* BRAIN stays mounted to preserve the WebGL scene */}
-          <div
-            className={
-              tab === "brain" ? "flex min-h-0 flex-col gap-3" : "hidden"
-            }
-          >
-            <GraphModes />
-            <QueryBox />
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden p-3">
+          <HealthVerdict />
+          <Topbar />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {/* BRAIN deck stays mounted (hidden) to preserve the WebGL scene */}
+            <div className={tab === "brain" ? "h-full" : "hidden"}>
+              <CommandCenter />
+            </div>
+            {tab === "trading" && <TradingPanel />}
+            {tab === "ops" && <OpsPanel />}
           </div>
-          {tab === "trading" && <TradingPanel />}
-          {tab === "ops" && <OpsPanel />}
-
-          <RightRail />
+          <BottomBar />
         </div>
-
-        <div className="flex items-center justify-end px-1">
-          <span className="font-mono text-[10px] text-muted">
-            {wakeMode && <span className="text-gold">◉ jarvis listening · </span>}
-            1/2/3 — tabs · Ctrl+K — palette · hold Ctrl+Space — speak
-          </span>
-        </div>
-
-        <Ticker />
-      </main>
+      </div>
     </>
   );
 }

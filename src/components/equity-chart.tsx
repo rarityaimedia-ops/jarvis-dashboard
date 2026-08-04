@@ -1,6 +1,7 @@
 "use client";
 
-// lightweight-charts v5 equity curve — gold on panel black, crosshair on.
+// lightweight-charts v5 equity curve — blue series on navy panel (chart
+// geometry stays atmosphere-blue, never gold), crosshair on.
 
 import { useEffect, useRef } from "react";
 import {
@@ -26,26 +27,26 @@ export default function EquityChart({
       height: 220,
       autoSize: true,
       layout: {
-        background: { color: "#141210" },
-        textColor: "#8A8578",
-        fontFamily: "var(--font-geist-mono), monospace",
-        fontSize: 10,
+        background: { color: "#0d1526" },
+        textColor: "#9fb2d4",
+        fontFamily: "var(--font-jetbrains-mono), monospace",
+        fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "#24211B" },
-        horzLines: { color: "#24211B" },
+        vertLines: { color: "rgba(90, 130, 220, 0.14)" },
+        horzLines: { color: "rgba(90, 130, 220, 0.14)" },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: "#4A3F1E", labelBackgroundColor: "#4A3F1E" },
-        horzLine: { color: "#4A3F1E", labelBackgroundColor: "#4A3F1E" },
+        vertLine: { color: "rgba(90, 130, 220, 0.5)", labelBackgroundColor: "#1e3a66" },
+        horzLine: { color: "rgba(90, 130, 220, 0.5)", labelBackgroundColor: "#1e3a66" },
       },
-      timeScale: { borderColor: "#24211B", timeVisible: true },
-      rightPriceScale: { borderColor: "#24211B" },
+      timeScale: { borderColor: "rgba(90, 130, 220, 0.38)", timeVisible: true },
+      rightPriceScale: { borderColor: "rgba(90, 130, 220, 0.38)" },
     });
     const series = chart.addSeries(LineSeries, {
-      color: "#D4AF37",
+      color: "#6b8cff",
       lineWidth: 2,
       priceLineVisible: false,
     });

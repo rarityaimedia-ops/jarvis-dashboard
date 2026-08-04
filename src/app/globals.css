@@ -1,56 +1,110 @@
 @import "tailwindcss";
 
 :root {
-  --bg-deep: #070604;
-  --bg: #0a0a0a;
-  --panel: #141210;
+  /* gold jewelry — shared by v2 and v3, still the identity accent everywhere */
   --gold: #d4af37;
-  --gold-dim: #8a7326;
-  --text: #e8e4d8;
-  --muted: #8a8578;
-  --hairline: #24211b;
+
+  /* the only two v2 tokens with a remaining consumer: boot.tsx renders its
+     pre-app overlay in the original warm-black palette (out of scope for
+     this migration). Every other v2 token (bg-deep, bg, panel's siblings,
+     gold-dim, text, muted, hairline, warning, emerald, failure) had zero
+     consumers after TRADING/OPS migrated and was deleted. */
+  --panel: #141210;
   --gold-border: #4a3f1e;
-  --warning: #e3b341;
-  --emerald: #34d399;
-  --failure: #f87171;
+
+  /* v3 command-center tokens — navy base, royal-blue atmosphere, scarce gold.
+     Contrast (worst case = royal-blue glass @50% over blue-lit grid):
+     gold 7.18:1, text-dim 7.04:1, blue-bright 4.91:1 — all ≥ Phase 1 gates. */
+  --bg-base: #070a14; /* navy-black body */
+  --bg-panel: #0d1526; /* opaque faux-glass panel fill (grid can't bleed) */
+  --glass-fill: rgba(30, 58, 102, 0.5); /* royal-blue translucent — true glass only */
+  --glass-edge: rgba(120, 160, 240, 0.1); /* soft top inner highlight */
+  --border-dim: rgba(90, 130, 220, 0.38); /* blue atmosphere border/bracket */
+  --ink-cc: #e2e8f5; /* cool near-white — command-center body text */
+  --text-dim: #9fb2d4; /* cool blue-gray — small uppercase labels */
+  --blue: #4169e1; /* royal blue — fills/large areas only, never text */
+  --blue-bright: #6b8cff; /* all blue text/glyphs/status/live */
+  --gold-bright: #f0dc9a; /* gold hover/accent lift */
+  --ok: #34d399; /* was aliased to the retired --emerald; same value, inlined */
+  --warn: #ff8c42;
+  --err: #ff4757;
+  --grid-line: rgba(90, 130, 220, 0.05); /* blue grid @ 5% */
+
+  /* compact type scale (density pass) — HARD FLOOR 11px, nothing renders
+     smaller. Contrast is a color-only ratio (font-size does not change it);
+     what shrinking DOES change is which WCAG tier applies — 11–12px is
+     always "small text" (4.5:1 bar), which is the tier Phase 1 already
+     gated --text-dim/--blue-bright/--gold/--err against, so the same
+     computed ratios (7.04 / 4.91 / 7.18 / 4.53 vs worst-case glass-over-grid)
+     still clear the gate unchanged at these sizes. */
+  --fs-body: 12px; /* panel body / mono data */
+  --fs-meta: 11px; /* secondary/meta text + panel labels — the floor */
+  --lh-tight: 1.35;
 }
 
 @theme inline {
-  --color-bg-deep: var(--bg-deep);
-  --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-gold: var(--gold);
-  --color-gold-dim: var(--gold-dim);
-  --color-ink: var(--text);
-  --color-muted: var(--muted);
-  --color-hairline: var(--hairline);
   --color-gold-border: var(--gold-border);
-  --color-warning: var(--warning);
-  --color-emerald: var(--emerald);
-  --color-failure: var(--failure);
+  --color-bg-base: var(--bg-base);
+  --color-bg-panel: var(--bg-panel);
+  --color-border-dim: var(--border-dim);
+  --color-text-dim: var(--text-dim);
+  --color-blue: var(--blue);
+  --color-blue-bright: var(--blue-bright);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-grid-line: var(--grid-line);
+  --color-ink-cc: var(--ink-cc);
+  --color-gold-bright: var(--gold-bright);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-rajdhani: var(--font-rajdhani);
+  --font-jetbrains-mono: var(--font-jetbrains-mono);
+}
+
+/* themed scrollbars — consumed everywhere; every internal overflow-y panel
+   inherits this globally, no native white chrome anywhere. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(65, 105, 225, 0.25) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(65, 105, 225, 0.25);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 140, 255, 0.5); /* brightens toward --blue-bright */
 }
 
 body {
-  /* fine FUI grid over deep black — opacity ≤0.04 per DESIGN.md */
+  /* fine FUI grid over deep black — --grid-line already sits at ≤0.04 opacity */
   background:
     repeating-linear-gradient(
       to right,
-      rgba(212, 175, 55, 0.035) 0 1px,
+      var(--grid-line) 0 1px,
       transparent 1px 48px
     ),
     repeating-linear-gradient(
       to bottom,
-      rgba(212, 175, 55, 0.035) 0 1px,
+      var(--grid-line) 0 1px,
       transparent 1px 48px
     ),
-    var(--bg-deep);
-  color: var(--text);
+    var(--bg-base);
+  color: var(--ink-cc);
   font-family: var(--font-geist-sans), sans-serif;
 }
 
-/* one slow scanline sweep — transform-only, compositor thread */
+/* one slow scanline sweep — transform-only, compositor thread. Disable in
+   one line by setting --scanline-opacity: 0 on a wrapper if ever needed. */
 body::after {
   content: "";
   position: fixed;
@@ -61,7 +115,7 @@ body::after {
   background: linear-gradient(
     to bottom,
     transparent,
-    rgba(212, 175, 55, 0.03),
+    rgba(90, 130, 220, var(--scanline-opacity, 0.035)),
     transparent
   );
   pointer-events: none;
@@ -77,53 +131,134 @@ body::after {
   }
 }
 
-/* HUD panel: sharp corners, hairline border, 1.5px gold corner brackets (14px arms) */
-.hud-panel {
+/* Command-center faux-glass panel — OPAQUE navy fill so the body grid can't
+   bleed through (grid bleed kills --text-dim readability), royal-blue border,
+   soft top highlight. Used for ALL grid panels incl. the canvas-adjacent core:
+   no backdrop-filter anywhere near the WebGL coordinate space. */
+.cc-panel {
   position: relative;
-  border-radius: 0;
-  background: var(--panel);
-  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, var(--glass-edge), transparent 42%),
+    var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  transition: border-color 200ms ease-out;
 }
-.hud-panel::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  background-image:
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold)),
-    linear-gradient(var(--gold), var(--gold));
-  background-repeat: no-repeat;
-  background-position:
-    left top, left top,
-    right top, right top,
-    left bottom, left bottom,
-    right bottom, right bottom;
-  background-size:
-    14px 1.5px, 1.5px 14px,
-    14px 1.5px, 1.5px 14px,
-    14px 1.5px, 1.5px 14px,
-    14px 1.5px, 1.5px 14px;
+.cc-panel.is-interactive:hover,
+.cc-panel.is-active {
+  border-color: var(--gold); /* gold is a permitted hover/active accent */
+}
+.cc-panel.is-warn {
+  border-style: dashed;
+  border-color: var(--warn);
+}
+.cc-panel.is-err {
+  border-color: var(--err);
 }
 
-/* bottom ticker marquee — content duplicated once, track slides half its width */
-.ticker-track {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: marquee 60s linear infinite;
-  will-change: transform;
+/* True glass — backdrop blur — ONLY on chrome that never overlaps the WebGL
+   canvas: sidebar, topbar, bottom bar. Three surfaces, well under the 5 cap. */
+.cc-glass {
+  position: relative;
+  background: var(--glass-fill);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-dim);
 }
-.ticker:hover .ticker-track {
-  animation-play-state: paused;
+
+/* voice waveform — transform-only scaleY, animates only while listening.
+   Counts as one intentional cluster (see DESIGN.md effects budget). */
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
+.voice-wave > span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--blue-bright);
+  transform-origin: center;
+  animation: wave 1.1s ease-in-out infinite;
+}
+.voice-wave > span:nth-child(2) { animation-delay: 0.15s; }
+.voice-wave > span:nth-child(3) { animation-delay: 0.3s; }
+.voice-wave > span:nth-child(4) { animation-delay: 0.45s; }
+.voice-wave > span:nth-child(5) { animation-delay: 0.6s; }
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.28); }
+  50% { transform: scaleY(1); }
+}
+
+.panel-label {
+  font-family: var(--font-rajdhani), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-tight);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* status dot: blue-bright pulse = live data; ok/warn/err = static state.
+   The pulse animates opacity only over a STATIC box-shadow (never blur/spread/color). */
+.status-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-dot.is-live {
+  background: var(--blue-bright);
+}
+.status-dot.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 2px var(--blue-bright);
+  animation: dot-pulse 2.4s ease-in-out infinite;
+}
+.status-dot.is-ok {
+  background: var(--ok);
+}
+.status-dot.is-warn {
+  background: var(--warn);
+}
+.status-dot.is-err {
+  background: var(--err);
+}
+@keyframes dot-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* the only two permitted gold glows: active tab nav item + the 3D graph's
+   own bloom pass (brain-3d.tsx, untouched). Everywhere else glow is blue. */
+.tab-glow {
+  position: relative;
+}
+.tab-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 0 8px 1px var(--gold);
+  animation: glow-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
   }
 }
 
@@ -158,10 +293,10 @@ body::after {
 .brain-tip {
   display: inline-block;
   padding: 3px 8px;
-  border: 1px solid var(--gold-border);
-  background: rgba(7, 6, 4, 0.9);
+  border: 1px solid var(--border-dim);
+  background: rgba(7, 10, 20, 0.92);
   color: var(--gold);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
   font-size: 11px;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -170,6 +305,13 @@ body::after {
 /* vitals gauges */
 .gauge-arc {
   transition: stroke-dashoffset 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* keyboard focus ring — blue atmosphere, visible on every interactive control */
+:focus-visible {
+  outline: 2px solid var(--blue-bright);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {

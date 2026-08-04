@@ -80,12 +80,12 @@ export default function MiniBrain() {
       aria-label={`Mini brain — ${nodeCount} nodes, open BRAIN tab`}
       className={`group mx-auto border transition-colors ${
         tab === "brain"
-          ? "border-hairline"
-          : "border-hairline hover:border-gold-border"
+          ? "border-border-dim"
+          : "border-border-dim hover:border-gold"
       }`}
     >
       <canvas ref={canvasRef} width={90} height={60} className="block" />
-      <span className="block border-t border-hairline px-1 py-0.5 text-center font-mono text-[9px] tracking-[0.2em] text-muted transition-colors group-hover:text-gold">
+      <span className="block border-t border-border-dim px-1 py-0.5 text-center font-jetbrains-mono text-[length:var(--fs-meta)] tracking-[0.15em] text-text-dim transition-colors group-hover:text-gold">
         CORE
       </span>
     </button>

@@ -15,6 +15,8 @@ import {
   type GraphData,
   type TradingPayload,
   type CostsPayload,
+  type AgentsPayload,
+  type RunsPayload,
 } from "@/lib/store";
 import { setAudioMuted } from "@/lib/audio";
 
@@ -38,7 +40,11 @@ export default function DataPoller() {
     return unsub;
   }, []);
 
-  const { data: health } = useSWR<Health>("/api/health", fetcher, live);
+  const { data: health, mutate: mutateHealth } = useSWR<Health>(
+    "/api/health",
+    fetcher,
+    live
+  );
   const { data: vitals } = useSWR<Vitals>("/api/vitals", fetcher, live);
   const { data: hub } = useSWR<Hub>("/api/hub", fetcher, live);
   const { data: roadmap } = useSWR<Roadmap>("/api/roadmap", fetcher, live);
@@ -56,10 +62,18 @@ export default function DataPoller() {
     fetcher,
     trading15
   );
+  const { data: agents } = useSWR<AgentsPayload>("/api/agents", fetcher, live);
+  const { data: runs } = useSWR<RunsPayload>("/api/runs", fetcher, live);
 
   useEffect(() => {
-    if (health) set({ health });
+    if (health) {
+      set({ health });
+      if (health.hermes.running) set({ hermesStartPhase: "idle" });
+    }
   }, [health, set]);
+  useEffect(() => {
+    set({ refreshHealth: () => void mutateHealth() });
+  }, [mutateHealth, set]);
   useEffect(() => {
     if (vitals) set({ vitals });
   }, [vitals, set]);
@@ -85,6 +99,12 @@ export default function DataPoller() {
     if (costs) set({ costs, costsError: null });
     else if (costsErr) set({ costsError: String(costsErr.message ?? costsErr) });
   }, [costs, costsErr, set]);
+  useEffect(() => {
+    if (agents) set({ agents });
+  }, [agents, set]);
+  useEffect(() => {
+    if (runs) set({ runs });
+  }, [runs, set]);
 
   return null;
 }

@@ -79,10 +79,11 @@ function BrainInner({
   const restingIntensity = useCallback(
     (node: BrainNode) => {
       const f = focusedRef.current;
-      // 0.7 rides just over the bloom threshold: soft resting glow
-      if (!f) return 0.7;
+      // core is the brightest object on screen at rest: 1.0 sits well above
+      // the (lowered) bloom threshold so every node glows unfocused
+      if (!f) return 1.0;
       const bright = node.id === f || adj.neighbors.get(f)?.has(node.id);
-      return bright ? 1.2 : 0.05;
+      return bright ? 1.5 : 0.06;
     },
     [adj]
   );
@@ -108,7 +109,7 @@ function BrainInner({
           .timeline()
           .to(lm, { opacity: 0.7, duration: 0.3 })
           .to(lm, {
-            opacity: focusedRef.current ? lm.opacity : 0.25,
+            opacity: focusedRef.current ? lm.opacity : 0.4,
             duration: 0.8,
           });
       }
@@ -135,7 +136,7 @@ function BrainInner({
           focusId && (idOf(l.source) === focusId || idOf(l.target) === focusId);
         gsap.killTweensOf(lm);
         gsap.to(lm, {
-          opacity: focusId ? (bright ? 0.55 : 0.04) : 0.25,
+          opacity: focusId ? (bright ? 0.6 : 0.04) : 0.4,
           duration: 0.5,
         });
       }
@@ -187,11 +188,13 @@ function BrainInner({
     const fg = fgRef.current;
     if (!fg) return;
     const composer = fg.postProcessingComposer();
+    // strength 1.8 / radius 0.6 / threshold 0.42 — the core reads as the
+    // brightest, most bloomed object on screen (command-center centerpiece)
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(width || 800, height || 600),
-      1.2,
-      0.5,
-      0.55
+      1.8,
+      0.6,
+      0.42
     );
     composer.addPass(bloom);
     const copy = new ShaderPass(CopyShader);
@@ -199,28 +202,36 @@ function BrainInner({
     // 0.0015: nearest nodes ~full brightness, farthest fade like deep
     // memory but stay faintly visible (0.008 fogged the whole scene black)
     fg.scene().fog = new THREE.FogExp2(0x000000, 0.0015);
+
+    // framebuffer guard: tab switches collapse this component's ancestor
+    // to display:none, which zeroes the canvas's drawing buffer while
+    // react-force-graph's rAF loop keeps ticking — composer.render() then
+    // draws into a 0x0 framebuffer and spams GL_INVALID_FRAMEBUFFER_OPERATION.
+    // Skip the draw call (not the rAF loop) whenever that's the case, so
+    // physics/camera state stays warm and resuming is 1-frame seamless.
+    const renderer = fg.renderer();
+    const originalRender = composer.render.bind(composer);
+    composer.render = (deltaTime?: number) => {
+      const canvas = renderer?.domElement;
+      if (
+        !canvas ||
+        canvas.width === 0 ||
+        canvas.height === 0 ||
+        useJarvis.getState().tab !== "brain"
+      ) {
+        return;
+      }
+      originalRender(deltaTime);
+    };
+
     return () => {
       composer.removePass(bloom);
       composer.removePass(copy);
+      composer.render = originalRender;
     };
     // mount-only: pass resolution updates aren't worth a composer rebuild
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // fully pause the render loop while the BRAIN tab is inactive — the
-  // scene stays mounted (camera/physics preserved) but the GPU idles
-  const tab = useJarvis((s) => s.tab);
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-    if (tab === "brain") {
-      fg.resumeAnimation();
-      console.log("[brain] render loop resumed");
-    } else {
-      fg.pauseAnimation();
-      console.log("[brain] render loop paused (tab inactive)");
-    }
-  }, [tab]);
 
   // synaptic pulse: every 4-7s a random node flares
   useEffect(() => {
@@ -239,7 +250,10 @@ function BrainInner({
     return () => clearTimeout(timer);
   }, [graphData, pulse]);
 
-  // idle camera orbit — pauses on interaction, resumes after 20s
+  // idle camera orbit — ~0.15 rad/s, frame-delta timed so speed is
+  // framerate-independent. Pauses on interaction (resumes 20s later) and on
+  // reduced-motion. The delta tracker resets when the tab/document becomes
+  // visible again so a long hidden gap doesn't snap the camera forward.
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg || reducedMotion()) return;
@@ -255,21 +269,41 @@ function BrainInner({
       }, 20_000);
     };
     controls.addEventListener("start", onInteract);
-    const spin = setInterval(() => {
-      if (orbitPausedRef.current || !fgRef.current) return;
-      const cam = fgRef.current.camera();
+
+    const SPEED = 0.15; // rad/s
+    let raf = 0;
+    let last = performance.now();
+    const resetDelta = () => {
+      if (!document.hidden) last = performance.now();
+    };
+    document.addEventListener("visibilitychange", resetDelta);
+
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const now = performance.now();
+      const dt = (now - last) / 1000;
+      last = now;
+      const g = fgRef.current;
+      // skip advancing while paused, off the BRAIN tab, or backgrounded
+      if (
+        !g ||
+        orbitPausedRef.current ||
+        document.hidden ||
+        useJarvis.getState().tab !== "brain"
+      )
+        return;
+      const cam = g.camera();
       const r = Math.hypot(cam.position.x, cam.position.z);
       if (r < 1) return;
-      const a = Math.atan2(cam.position.x, cam.position.z) + 0.0009;
-      fgRef.current.cameraPosition({
-        x: r * Math.sin(a),
-        y: cam.position.y,
-        z: r * Math.cos(a),
-      });
-    }, 40);
+      const a = Math.atan2(cam.position.x, cam.position.z) + SPEED * dt;
+      g.cameraPosition({ x: r * Math.sin(a), y: cam.position.y, z: r * Math.cos(a) });
+    };
+    raf = requestAnimationFrame(tick);
+
     return () => {
       controls.removeEventListener("start", onInteract);
-      clearInterval(spin);
+      document.removeEventListener("visibilitychange", resetDelta);
+      cancelAnimationFrame(raf);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, []);
@@ -291,11 +325,11 @@ function BrainInner({
   }, [adj, pulse, handleNodeClick, clearFocus]);
 
   const nodeThreeObject = useCallback((node: BrainNode) => {
-    const r = 2 + Math.cbrt(node.degree || 1) * 1.8;
+    const r = 2.6 + Math.cbrt(node.degree || 1) * 2.4;
     const mat = new THREE.MeshStandardMaterial({
       color: 0x171204,
       emissive: EMISSIVE[Math.abs(node.community) % EMISSIVE.length],
-      emissiveIntensity: 0.7,
+      emissiveIntensity: 1.0,
       metalness: 0.9,
       roughness: 0.35,
     });
@@ -309,12 +343,12 @@ function BrainInner({
       width={width}
       height={height}
       graphData={graphData}
-      backgroundColor="#070604"
+      backgroundColor="#070a14"
       showNavInfo={false}
       nodeThreeObject={nodeThreeObject}
       nodeLabel={(n) => `<span class="brain-tip">${n.label}</span>`}
       linkColor={() => "#d4af37"}
-      linkOpacity={0.25}
+      linkOpacity={0.4}
       linkDirectionalParticles={reducedMotion() ? 0 : 2}
       linkDirectionalParticleSpeed={0.004}
       linkDirectionalParticleWidth={1.2}

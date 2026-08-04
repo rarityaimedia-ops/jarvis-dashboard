@@ -289,18 +289,18 @@ export default function Flow() {
   return (
     <div
       role="status"
-      className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 border border-gold-border bg-panel px-4 py-2 font-mono text-xs text-ink"
+      className="cc-glass fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg px-4 py-2 font-jetbrains-mono text-xs text-ink-cc"
     >
       {state.s === "listening" && (
-        <span className="text-gold">
-          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-gold" />
+        <span className="text-blue-bright">
+          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-blue-bright" />
           LISTENING — release to send · Esc to cancel
         </span>
       )}
       {state.s === "transcribing" && (
-        <span className="animate-pulse text-muted">transcribing locally…</span>
+        <span className="animate-pulse text-text-dim">transcribing locally…</span>
       )}
-      {state.s === "loading" && <span className="text-muted">{state.msg}</span>}
+      {state.s === "loading" && <span className="text-text-dim">{state.msg}</span>}
       {state.s === "flash" && <span>{state.msg}</span>}
     </div>
   );

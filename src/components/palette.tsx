@@ -54,17 +54,17 @@ export default function Palette() {
       onClick={close}
     >
       <div
-        className="hud-panel w-[min(92vw,560px)]"
+        className="cc-panel w-[min(92vw,560px)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <Command label="Jarvis command palette" className="font-mono text-sm">
+        <Command label="Jarvis command palette" className="font-jetbrains-mono text-sm">
           <Command.Input
             autoFocus
             placeholder="command or node name…"
-            className="w-full border-b border-hairline bg-bg-deep px-4 py-3 text-ink placeholder:text-muted focus:outline-none"
+            className="w-full border-b border-border-dim bg-bg-base px-4 py-3 text-ink-cc placeholder:text-text-dim focus:outline-none"
           />
-          <Command.List className="max-h-[50vh] overflow-auto p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:tracking-[0.25em] [&_[cmdk-group-heading]]:text-muted">
-            <Command.Empty className="px-3 py-6 text-center text-xs text-muted">
+          <Command.List className="max-h-[50vh] overflow-auto p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[length:var(--fs-meta)] [&_[cmdk-group-heading]]:tracking-[0.2em] [&_[cmdk-group-heading]]:text-text-dim">
+            <Command.Empty className="px-3 py-6 text-center text-xs text-text-dim">
               nothing matches.
             </Command.Empty>
 
@@ -182,7 +182,7 @@ function Item({
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="cursor-pointer px-3 py-2 text-xs text-ink data-[selected=true]:bg-bg data-[selected=true]:text-gold"
+      className="cursor-pointer rounded px-3 py-2 text-xs text-ink-cc data-[selected=true]:bg-blue/10 data-[selected=true]:text-gold"
     >
       {children}
     </Command.Item>

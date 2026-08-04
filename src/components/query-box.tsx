@@ -207,8 +207,8 @@ export default function QueryBox() {
 
   /* ---------- render ---------- */
   return (
-    <section className="hud-panel">
-      <div className="flex flex-wrap items-center gap-2.5 border-b border-hairline px-4 py-3">
+    <section className="cc-panel">
+      <div className="flex flex-wrap items-center gap-2.5 border-b border-border-dim px-4 py-3">
         <input
           id="query-input"
           value={question}
@@ -216,18 +216,18 @@ export default function QueryBox() {
           onKeyDown={(e) => e.key === "Enter" && ask()}
           maxLength={300}
           placeholder={listening ? "listening…" : "Ask the company brain…"}
-          className={`min-w-52 flex-1 border bg-bg-deep px-3.5 py-2 font-mono text-sm text-ink placeholder:text-muted focus:outline-none ${
-            listening ? "border-gold" : "border-hairline focus:border-gold-border"
+          className={`min-w-52 flex-1 border bg-bg-base px-3.5 py-2 font-jetbrains-mono text-sm text-ink-cc placeholder:text-text-dim focus:outline-none ${
+            listening ? "border-gold" : "border-border-dim focus:border-gold"
           }`}
         />
         <button
           onClick={toggleMic}
           title={`Voice input (${voiceLang})`}
           aria-pressed={listening}
-          className={`border px-3 py-2 font-mono text-xs transition-colors ${
+          className={`border px-3 py-2 font-jetbrains-mono text-xs transition-colors ${
             listening
               ? "border-gold text-gold"
-              : "border-hairline text-muted hover:text-ink"
+              : "border-border-dim text-text-dim hover:text-ink"
           }`}
         >
           {listening ? "◉ REC" : "◎ MIC"}
@@ -238,11 +238,11 @@ export default function QueryBox() {
             set({ voiceLang: voiceLang === "sl-SI" ? "en-US" : "sl-SI" });
           }}
           title="Voice language"
-          className="border border-hairline px-3 py-2 font-mono text-xs text-muted transition-colors hover:text-ink"
+          className="border border-border-dim px-3 py-2 font-jetbrains-mono text-xs text-text-dim transition-colors hover:text-ink"
         >
           {voiceLang === "sl-SI" ? "SL" : "EN"}
         </button>
-        <div className="flex font-mono text-xs">
+        <div className="flex font-jetbrains-mono text-xs">
           {(["graphify", "claude"] as const).map((e) => (
             <button
               key={e}
@@ -253,8 +253,8 @@ export default function QueryBox() {
               title={e === "graphify" ? "Fast graph lookup" : "Deep answer (≤2 min)"}
               className={`border px-3 py-2 transition-colors ${
                 engine === e
-                  ? "border-gold-border bg-bg text-gold"
-                  : "border-hairline text-muted hover:text-ink"
+                  ? "border-gold bg-bg-base text-gold"
+                  : "border-border-dim text-text-dim hover:text-ink"
               }`}
             >
               {e === "graphify" ? "GRAPHIFY" : "CLAUDE"}
@@ -264,14 +264,14 @@ export default function QueryBox() {
         {state === "loading" ? (
           <button
             onClick={stop}
-            className="border border-gold-border px-4 py-2 font-mono text-xs text-warning transition-colors hover:text-ink"
+            className="border border-warn px-4 py-2 font-jetbrains-mono text-xs text-warn transition-colors hover:text-ink"
           >
-            ABORT
+            ▲ ABORT
           </button>
         ) : (
           <button
             onClick={() => ask()}
-            className="border border-gold-border px-4 py-2 font-mono text-xs text-gold transition-colors hover:bg-bg"
+            className="border border-gold px-4 py-2 font-jetbrains-mono text-xs text-gold transition-colors hover:bg-bg-base"
           >
             ASK
           </button>
@@ -279,18 +279,18 @@ export default function QueryBox() {
         {speaking && (
           <button
             onClick={stopSpeaking}
-            className="border border-warning px-3 py-2 font-mono text-xs text-warning"
+            className="border border-blue-bright px-3 py-2 font-jetbrains-mono text-xs text-blue-bright"
           >
             ■ VOICE
           </button>
         )}
       </div>
       {notice && (
-        <p className="border-b border-hairline px-4 py-2 font-mono text-[11px] text-warning">
-          {notice}
+        <p className="border-b border-border-dim px-4 py-2 font-jetbrains-mono text-[11px] text-warn">
+          ▲ {notice}
           <button
             onClick={() => setNotice(null)}
-            className="ml-3 text-muted hover:text-ink"
+            className="ml-3 text-text-dim hover:text-ink"
           >
             dismiss
           </button>
@@ -299,19 +299,19 @@ export default function QueryBox() {
       {(answer || state !== "idle") && (
         <div className="px-4 py-3">
           {state === "error" && (
-            <p className="font-mono text-xs text-warning">
-              query failed — engine unavailable or crashed. Check the server log.
+            <p className="font-jetbrains-mono text-xs text-err">
+              ■ query failed — engine unavailable or crashed. Check the server log.
             </p>
           )}
           {state === "loading" && !answer && (
-            <p className="animate-pulse font-mono text-xs text-muted">
+            <p className="animate-pulse font-jetbrains-mono text-xs text-text-dim">
               {engine === "claude"
                 ? "claude is reading the vault…"
                 : "querying graph…"}
             </p>
           )}
           {answer && (
-            <pre className="max-h-72 overflow-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink">
+            <pre className="max-h-72 overflow-auto font-jetbrains-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-cc">
               {answer}
               {state === "loading" && <span className="text-gold">▌</span>}
             </pre>

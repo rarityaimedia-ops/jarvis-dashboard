@@ -66,6 +66,46 @@ export type CostsPayload = {
 };
 export type AlertEvent = { t: string; msg: string };
 
+export type AgentMetric = {
+  key: string;
+  current: number;
+  // null = NO_BASELINE (no prior window to compare); a number = a real delta,
+  // including a genuine 0. The UI must render these differently ("—" vs "0").
+  delta: number | null;
+  baselineStatus: "VALID" | "NO_BASELINE";
+};
+export type AgentSkill = {
+  name: string;
+  lastRun: string | null;
+  freshness: "ok" | "warn" | "err";
+  metrics: AgentMetric[];
+  anomalies: string[];
+  digestDate: string | null;
+};
+export type AgentsPayload = {
+  online: boolean;
+  generatedAt: string | null;
+  skills: AgentSkill[];
+};
+
+// Command-bus run records, surfaced by /api/runs (reads queue/running + queue/done).
+export type RunStatus = "ok" | "error" | "timeout" | "rejected";
+export type RunEntry = {
+  job_id: string;
+  skill: string;
+  status: RunStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  exit_code: number | null;
+  output_path: string | null;
+};
+export type RunsPayload = {
+  running: { job_id: string; ageMs: number }[];
+  recent: RunEntry[];
+};
+export type AlertItem = { msg: string; level: "warn" | "err"; kind?: "hermes-down" };
+export type HermesStartPhase = "idle" | "starting" | "failed";
+
 type JarvisState = {
   health: Health | null;
   vitals: Vitals | null;
@@ -77,6 +117,9 @@ type JarvisState = {
   tradingError: string | null;
   costs: CostsPayload | null;
   costsError: string | null;
+  agents: AgentsPayload | null;
+  runs: RunsPayload | null;
+  alerts: AlertItem[];
   alertHistory: AlertEvent[];
   mode: GraphMode;
   engine: "graphify" | "claude";
@@ -89,8 +132,16 @@ type JarvisState = {
   booted: boolean;
   selectedNode: GraphNode | null;
   refreshGraph: () => void;
+  refreshHealth: () => void;
+  hermesStartPhase: HermesStartPhase;
+  startHermes: () => Promise<void>;
   set: (patch: Partial<JarvisState>) => void;
 };
+
+// module-level, not store state: a client-side nicety only (avoids firing a
+// redundant request while one is in flight) — the *real* single-execution
+// guarantee is the 10s debounce enforced server-side in the route itself.
+let hermesStartInFlight = false;
 
 export const useJarvis = create<JarvisState>()(
   persist(
@@ -105,6 +156,9 @@ export const useJarvis = create<JarvisState>()(
       tradingError: null,
       costs: null,
       costsError: null,
+      agents: null,
+      runs: null,
+      alerts: [],
       alertHistory: [],
       mode: "brain",
       engine: "graphify",
@@ -117,6 +171,25 @@ export const useJarvis = create<JarvisState>()(
       booted: false,
       selectedNode: null,
       refreshGraph: () => {},
+      refreshHealth: () => {},
+      hermesStartPhase: "idle",
+      startHermes: async () => {
+        if (hermesStartInFlight) return;
+        hermesStartInFlight = true;
+        set({ hermesStartPhase: "starting" });
+        try {
+          const res = await fetch("/api/ops/hermes/start", { method: "POST" });
+          if (res.status === 429) return; // already in flight elsewhere — leave "starting", the poll resolves truth
+          const data = (await res.json()) as { triggered: boolean; online: boolean };
+          set({ hermesStartPhase: data.online ? "idle" : "failed" });
+          useJarvis.getState().refreshHealth(); // don't wait for the next 5s poll interval
+
+        } catch {
+          set({ hermesStartPhase: "failed" });
+        } finally {
+          hermesStartInFlight = false;
+        }
+      },
       set: (patch) => set(patch),
     }),
     {

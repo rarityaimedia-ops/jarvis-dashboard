@@ -19,7 +19,7 @@ const Tactical2D = dynamic(() => import("@/components/tactical-2d"), {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="grid h-full place-items-center font-mono text-xs text-muted">
+    <div className="grid h-full place-items-center font-jetbrains-mono text-xs text-text-dim">
       {label}
     </div>
   );
@@ -57,13 +57,16 @@ export default function GraphModes() {
   }
 
   return (
-    <section className="hud-panel flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
-        <h2 className="font-mono text-xs tracking-widest text-muted">
+    <section className="cc-panel flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-border-dim px-4 py-2">
+        <h2 className="panel-label flex items-center gap-2">
           KNOWLEDGE CORE
-          {graph?.cached && <span className="ml-2 text-warning">cached</span>}
+          <span className="status-dot is-live" aria-hidden />
+          {graph?.cached && (
+            <span className="text-warn normal-case tracking-normal">▲ cached</span>
+          )}
         </h2>
-        <div className="flex items-center gap-2 font-mono text-[11px]">
+        <div className="flex items-center gap-2 font-rajdhani text-[11px] font-medium uppercase tracking-[0.15em]">
           {MODES.map((m) => (
             <button
               key={m.key}
@@ -73,8 +76,8 @@ export default function GraphModes() {
               }}
               className={`border px-2.5 py-1 transition-colors ${
                 mode === m.key
-                  ? "border-gold-border bg-bg text-gold"
-                  : "border-transparent text-muted hover:text-ink"
+                  ? "border-gold bg-bg-base text-gold"
+                  : "border-transparent text-text-dim hover:text-ink"
               }`}
             >
               {m.label}
@@ -85,7 +88,7 @@ export default function GraphModes() {
               sfx.tick();
               refreshGraph();
             }}
-            className="border border-transparent px-2.5 py-1 text-muted transition-colors hover:text-gold"
+            className="border border-transparent px-2.5 py-1 text-text-dim transition-colors hover:text-gold"
             title="Re-fetch graph.json"
           >
             SYNC
@@ -93,12 +96,14 @@ export default function GraphModes() {
         </div>
       </div>
 
-      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-hidden">
+      {/* isolate: own stacking context so no backdrop-filter elsewhere on
+          the page can ever composite over the WebGL canvas's coordinate space */}
+      <div ref={wrapRef} className="relative isolate min-h-0 flex-1 overflow-hidden">
         {mode === "graphify" ? (
           <iframe
             src="/api/graph-html"
             title="graphify graph"
-            className="h-full w-full border-0 bg-bg-deep"
+            className="h-full w-full border-0 bg-bg-base"
           />
         ) : !graph ? (
           <Loading label="loading graph…" />
@@ -116,27 +121,27 @@ export default function GraphModes() {
         ) : null}
 
         {selected && mode === "brain" && (
-          <aside className="hud-panel absolute right-3 top-3 w-64 p-4 font-mono text-xs">
+          <aside className="cc-panel absolute right-3 top-3 w-64 p-4 font-jetbrains-mono text-xs">
             <div className="flex items-start justify-between gap-2">
               <span className="text-sm leading-snug text-gold">
                 {selected.label}
               </span>
               <button
                 onClick={() => brainBus.emit("clear", undefined)}
-                className="text-muted transition-colors hover:text-ink"
+                className="text-text-dim transition-colors hover:text-ink-cc"
                 aria-label="Close node info"
               >
                 ✕
               </button>
             </div>
-            <dl className="mt-3 space-y-1 text-muted">
+            <dl className="mt-3 space-y-1 text-text-dim">
               <div className="flex justify-between">
                 <dt>community</dt>
-                <dd className="text-ink">{selected.community}</dd>
+                <dd className="text-ink-cc">{selected.community}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>degree</dt>
-                <dd className="text-ink">{selected.degree}</dd>
+                <dd className="text-ink-cc">{selected.degree}</dd>
               </div>
               <div className="truncate" title={selected.filePath}>
                 {selected.filePath}
@@ -144,7 +149,7 @@ export default function GraphModes() {
             </dl>
             <button
               onClick={() => openInObsidian(selected.filePath, showToast)}
-              className="mt-3 w-full border border-gold-border px-3 py-1.5 text-gold transition-colors hover:bg-bg"
+              className="mt-3 w-full border border-border-dim px-3 py-1.5 text-gold transition-colors hover:border-gold hover:bg-bg-base"
             >
               OPEN IN OBSIDIAN
             </button>
@@ -152,7 +157,7 @@ export default function GraphModes() {
         )}
 
         {toast && (
-          <div className="absolute bottom-4 left-1/2 max-w-[90%] -translate-x-1/2 truncate border border-gold-border bg-panel px-4 py-2 font-mono text-xs text-ink">
+          <div className="absolute bottom-4 left-1/2 max-w-[90%] -translate-x-1/2 truncate border border-border-dim bg-bg-panel px-4 py-2 font-jetbrains-mono text-xs text-ink-cc">
             {toast}
           </div>
         )}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readVaultFile, tailLines, run, VAULT } from "@/lib/vault";
+import { queryTask } from "@/lib/schtasks";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,6 @@ type HealthPayload = {
 };
 
 let lastGoodPayload: HealthPayload | null = null;
-
-/** Parse `schtasks /query /fo CSV /nh /tn <task>`: "name","next run","status" */
-function parseTaskCsv(stdout: string): { next: string; status: string } | null {
-  const fields = stdout.match(/"([^"]*)"/g)?.map((f) => f.slice(1, -1));
-  if (!fields || fields.length < 3) return null;
-  return { next: fields[1].trim(), status: fields[2].trim() };
-}
 
 export async function GET() {
   try {
@@ -99,10 +93,10 @@ export async function GET() {
     }
 
     // Git + scheduled tasks, in parallel
-    const [git, rebuildTask, hermesTask] = await Promise.all([
+    const [git, rebuildInfo, hermesInfo] = await Promise.all([
       run("git", ["-C", VAULT, "status", "--porcelain"]),
-      run("schtasks", ["/query", "/fo", "CSV", "/nh", "/tn", REBUILD_TASK]),
-      run("schtasks", ["/query", "/fo", "CSV", "/nh", "/tn", HERMES_TASK]),
+      queryTask(REBUILD_TASK),
+      queryTask(HERMES_TASK),
     ]);
 
     const uncommitted =
@@ -110,12 +104,7 @@ export async function GET() {
         ? git.stdout.split(/\r?\n/).filter((l) => l.trim()).length
         : null;
 
-    const hermesInfo =
-      hermesTask.code === 0 ? parseTaskCsv(hermesTask.stdout) : null;
     hermes.running = hermesInfo?.status.toLowerCase() === "running";
-
-    const rebuildInfo =
-      rebuildTask.code === 0 ? parseTaskCsv(rebuildTask.stdout) : null;
 
     if (git.code === 0) {
       ticker.push(
