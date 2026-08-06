@@ -46,7 +46,7 @@ export type GraphData = {
 };
 
 export type GraphMode = "brain" | "tactical" | "graphify";
-export type Tab = "brain" | "trading" | "ops";
+export type Tab = "brain" | "trading" | "ops" | "quant";
 
 export type TradingPayload = TradingSnapshot & {
   stale: boolean;

@@ -31,6 +31,13 @@ export const SKILL_ALLOWLIST: Record<string, (args: unknown) => boolean> = {
     args !== null &&
     !Array.isArray(args) &&
     Object.keys(args as object).length === 0,
+  // quant-stats: empty-object-only. It reads one local DuckDB journal whose path it
+  // derives itself and holds no credential, so there is nothing a job may pass.
+  "quant-stats": (args) =>
+    typeof args === "object" &&
+    args !== null &&
+    !Array.isArray(args) &&
+    Object.keys(args as object).length === 0,
 };
 
 export function isAllowlistedSkill(skill: string): boolean {
@@ -42,6 +49,7 @@ export function isAllowlistedSkill(skill: string): boolean {
 // health verdict use this. Adding a skill's SLA is ONE line here.
 export const SKILL_SLA_HOURS: Record<string, number> = {
   "intake-stats": 24,
+  "quant-stats": 24,
 };
 
 /** Confine a path to QUEUE_ROOT; throws if it escapes. Mirrors vault.ts#vaultPath. */

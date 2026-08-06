@@ -1,18 +1,26 @@
 "use client";
 
-// Left rail: wordmark, primary nav (our three real tabs), and the re-housed
+// Left rail: wordmark, primary nav (our four real tabs), and the re-housed
 // voice panel. The panel toggles hands-free wake mode and mutes ambient sfx
 // (Focus Mode); push-to-talk stays on Ctrl+Space (owned by <Flow/>).
 
 import { useJarvis, type Tab } from "@/lib/store";
 import { sfx } from "@/lib/audio";
 import { TABS } from "@/components/hud";
-import { IconBrain, IconTrading, IconOps, IconMic, IconBolt } from "@/components/cc-icons";
+import {
+  IconBrain,
+  IconTrading,
+  IconOps,
+  IconQuant,
+  IconMic,
+  IconBolt,
+} from "@/components/cc-icons";
 
 const TAB_ICON: Record<Tab, React.ComponentType<{ className?: string }>> = {
   brain: IconBrain,
   trading: IconTrading,
   ops: IconOps,
+  quant: IconQuant,
 };
 
 export default function Sidebar() {

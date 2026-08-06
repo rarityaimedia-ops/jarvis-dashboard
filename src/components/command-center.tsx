@@ -41,7 +41,9 @@ const GRID_STYLE: React.CSSProperties = {
   ].join(" "),
 };
 
-function Panel({
+// Exported so the QUANT tab renders in the same shell as the command deck rather than
+// growing a third Panel implementation (trading.tsx already has its own).
+export function Panel({
   area,
   title,
   live,
@@ -951,7 +953,7 @@ function VoiceStatus() {
 
 /* ---------- shared empty ---------- */
 
-function EmptyNote({ text, sub }: { text: string; sub?: string }) {
+export function EmptyNote({ text, sub }: { text: string; sub?: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1 py-4 text-center">
       <span className="font-jetbrains-mono text-[length:var(--fs-body)] tracking-[0.12em] text-text-dim">

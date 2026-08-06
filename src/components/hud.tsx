@@ -10,6 +10,7 @@ export const TABS: { key: Tab; label: string }[] = [
   { key: "brain", label: "COMMAND" },
   { key: "trading", label: "TRADING" },
   { key: "ops", label: "OPS" },
+  { key: "quant", label: "QUANT" },
 ];
 
 /* ring gauge — blue arc (atmosphere/data) on a dim track, cool-white value */

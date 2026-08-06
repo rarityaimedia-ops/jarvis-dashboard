@@ -32,19 +32,22 @@ const TradingPanel = dynamic(() => import("@/components/trading"), {
   ),
 });
 const OpsPanel = dynamic(() => import("@/components/ops"), { ssr: false });
+const QuantPanel = dynamic(() => import("@/components/quant"), { ssr: false });
 
 export default function Dashboard() {
   const booted = useJarvis((s) => s.booted);
   const tab = useJarvis((s) => s.tab);
 
-  // keys 1/2/3 switch tabs (ignored while typing or with modifiers)
+  // keys 1..N switch tabs (ignored while typing or with modifiers). The list is derived
+  // from TABS rather than hardcoded, so adding a tab no longer means remembering to add
+  // its digit here — the previous ["1","2","3"] silently left any fourth tab unreachable.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const el = e.target as HTMLElement;
       if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)
         return;
-      const idx = ["1", "2", "3"].indexOf(e.key);
+      const idx = TABS.map((_, i) => String(i + 1)).indexOf(e.key);
       if (idx === -1) return;
       const next: Tab = TABS[idx].key;
       if (useJarvis.getState().tab !== next) {
@@ -79,6 +82,7 @@ export default function Dashboard() {
             </div>
             {tab === "trading" && <TradingPanel />}
             {tab === "ops" && <OpsPanel />}
+            {tab === "quant" && <QuantPanel />}
           </div>
           <BottomBar />
         </div>
