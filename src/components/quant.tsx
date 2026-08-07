@@ -12,9 +12,14 @@
 // a candidate that passed, a gate that was abandoned is not a gate that is protecting you,
 // and "no detective control for look-ahead" is a fact the tab states rather than omits.
 
+import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { Panel, EmptyNote } from "@/components/command-center";
 import type { QuantPayload, QuantCandidate, QuantGate } from "@/app/api/quant/route";
+
+// Charts are BELOW the kill log and are loaded that way too: recharts is a large bundle,
+// and the kill log is the primary screen. It renders without waiting for the charts.
+const QuantCharts = dynamic(() => import("@/components/quant-charts"), { ssr: false });
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -398,7 +403,11 @@ export default function QuantPanel() {
   const stale = data.freshness === "warn";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    // Scrolls as one column now that the charts sit below the fold. The kill log keeps
+    // flex-1 so it still fills the viewport on open — the charts are something you scroll
+    // DOWN to, which is the whole point of §9: the kill rate is the primary screen and the
+    // performance pictures are secondary to it, structurally and not just by styling.
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
       {/* One status line, and it distinguishes the two ways this tab can be empty:
           the dashboard could not read the artifact (offline), or quant-stats read the
           artifact fine and reported that IT could not read the journal (degraded). */}
@@ -432,11 +441,13 @@ export default function QuantPanel() {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3" style={GRID_STYLE}>
+      <div className="grid min-h-[520px] flex-1 shrink-0 gap-3" style={GRID_STYLE}>
         <KillLog q={data} />
         <Holdout q={data} />
         <GateCoverage q={data} />
       </div>
+
+      <QuantCharts q={data} />
     </div>
   );
 }
