@@ -43,7 +43,12 @@ import {
   Cell,
 } from "recharts";
 import { Panel, EmptyNote } from "@/components/command-center";
-import type { QuantPayload, QuantCandidate } from "@/app/api/quant/route";
+import type {
+  QuantPayload,
+  QuantCandidate,
+  QuantSeries,
+  QuantSpy,
+} from "@/app/api/quant/route";
 
 /* Chart geometry stays atmosphere-blue, matching trading.tsx. recharts needs literal
    colours for SVG strokes, so these mirror the tokens rather than replacing them:
@@ -66,12 +71,13 @@ const TOOLTIP_STYLE = {
   fontFamily: "var(--font-jetbrains-mono), monospace",
   fontSize: 11,
 };
-const CHART_H = 190;
-
-const GRID_STYLE: React.CSSProperties = {
-  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-  gridTemplateAreas: ['"equity underwater"', '"cliff beta"'].join(" "),
-};
+/* MASTER-DETAIL, not a 2x2 grid. A quarter of the region gave every chart too little room
+   to read: the cliff's three points against its binding bar and the underwater series'
+   shape are only legible at full width. One chart is expanded at roughly the height the
+   whole 2x2 block used to occupy; the other three sit beneath it as shapes. */
+const CHART_H = 420;
+const THUMB_H = 44;
+const THUMB_MARGIN = { top: 2, right: 2, bottom: 2, left: 2 };
 
 function sharpe(v: number | null | undefined): string {
   return v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(4)}`;
@@ -351,6 +357,19 @@ function correlationReading(r: number): string {
   return "The candidate moves largely independently of SPY on a daily basis, so its returns are not simply market exposure re-labelled. That is a point in its favour — and it still died at its gate.";
 }
 
+// Merged BY DATE rather than by index. Both series are thinned from the same grid with the
+// same factor so the indices do line up today, but a lookup cannot silently shift a curve
+// sideways if that ever stops being true. Shared with the beta thumbnail so the shape a
+// reader clicks is the shape they get.
+function betaData(s: QuantSeries, spy: NonNullable<QuantSpy>) {
+  const spyBy = new Map(spy.dates.map((d, i) => [d, spy.equityPct[i]]));
+  return s.dates.map((d, i) => ({
+    date: d,
+    candidate: s.equityPct[i],
+    spy: spyBy.get(d) ?? null,
+  }));
+}
+
 function BetaPanel({ c, q }: { c: QuantCandidate; q: QuantPayload }) {
   const s = c.returns.series;
   const spy = q.spy.series;
@@ -371,15 +390,7 @@ function BetaPanel({ c, q }: { c: QuantCandidate; q: QuantPayload }) {
     );
   }
 
-  // Merged BY DATE rather than by index. Both series are thinned from the same grid with
-  // the same factor so the indices do line up today, but a lookup cannot silently shift a
-  // curve sideways if that ever stops being true.
-  const spyBy = new Map(spy.dates.map((d, i) => [d, spy.equityPct[i]]));
-  const data = s.dates.map((d, i) => ({
-    date: d,
-    candidate: s.equityPct[i],
-    spy: spyBy.get(d) ?? null,
-  }));
+  const data = betaData(s, spy);
 
   return (
     <Panel
@@ -440,6 +451,289 @@ function BetaPanel({ c, q }: { c: QuantCandidate; q: QuantPayload }) {
   );
 }
 
+/* ---------- the four charts, as one registry ----------
+ *
+ * One list drives both slots: the expanded view renders `view`, the row beneath renders
+ * `thumb`. Splitting them into two hand-maintained lists is how a thumbnail ends up
+ * promoting a different chart than the one it drew.
+ *
+ * A THUMBNAIL IS NOT THE EXPANDED CHART SHRUNK — that is the unreadability this layout
+ * exists to fix. Axes, gridlines, tooltips, legends and captions are all stripped; what is
+ * left is the SHAPE of the series and the one number that names it. Captions in
+ * particular appear ONLY when expanded: at thumbnail width a sentence of prose is a grey
+ * smear, and these captions are the honest-state text, which must never be rendered
+ * illegibly rather than not at all.
+ */
+type ChartThumb = {
+  // The single most important number. "—" when there is nothing honest to put here — never
+  // a zero, which would read as a measured result.
+  headline: string;
+  // What the number IS. The bare figure is ambiguous: +0.5479 could be a Sharpe bar or a
+  // correlation, and the reader has no axis to tell them apart at this size.
+  unit: string;
+  // null when there is no series to draw. Rendered as a dim dash with the reason on hover
+  // rather than an EmptyNote, which is a block element built for a panel body and would
+  // dwarf a 44px shape. The FULL explanation is still shown, in the expanded view.
+  shape: React.ReactNode | null;
+  reason: string | null;
+};
+
+const CHARTS: {
+  label: string;
+  view: (c: QuantCandidate, q: QuantPayload) => React.ReactNode;
+  thumb: (c: QuantCandidate, q: QuantPayload) => ChartThumb;
+}[] = [
+  {
+    label: "Equity Curve",
+    view: (c, q) => <EquityPanel c={c} q={q} />,
+    thumb: (c) => {
+      const s = c.returns.series;
+      return {
+        headline: s ? pct(s.equityPct[s.equityPct.length - 1]) : "—",
+        unit: "cumulative",
+        reason: s ? null : c.returns.reason,
+        shape: s ? (
+          <LineChart data={s.equityPct.map((v) => ({ v }))} margin={THUMB_MARGIN} accessibilityLayer={false}>
+            <Line
+              type="monotone"
+              dataKey="v"
+              stroke={SERIES}
+              strokeWidth={1.3}
+              dot={false}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        ) : null,
+      };
+    },
+  },
+  {
+    label: "Underwater",
+    view: (c) => <UnderwaterPanel c={c} />,
+    thumb: (c) => {
+      const s = c.returns.series;
+      return {
+        // The drawdown comes from `stats`, computed on all bars — not from the thinned
+        // series drawn beside it, which steps over troughs and reports a shallower loss.
+        headline: pct(c.returns.stats?.maxDrawdownPct),
+        unit: "max drawdown",
+        reason: s ? null : c.returns.reason,
+        shape: s ? (
+          <AreaChart data={s.underwaterPct.map((v) => ({ v }))} margin={THUMB_MARGIN} accessibilityLayer={false}>
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke={SERIES}
+              strokeWidth={1.2}
+              fill={SERIES}
+              fillOpacity={0.16}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        ) : null,
+      };
+    },
+  },
+  {
+    label: "Parameter Cliff",
+    view: (c) => <CliffPanel c={c} />,
+    thumb: (c) => {
+      const g = c.gate4;
+      const pts = g.neighbours;
+      return {
+        headline: sharpe(g.bindingBar),
+        unit: "binding bar",
+        reason:
+          pts && pts.length > 0
+            ? null
+            : (g.reason ?? "never reached gate 4 — no gate 4 result recorded"),
+        shape:
+          pts && pts.length > 0 ? (
+            <ScatterChart margin={THUMB_MARGIN} accessibilityLayer={false}>
+              {/* Hidden, but present: a ScatterChart has no scale to place a point on
+                  without its axes. `hide` removes the ticks and the line, not the maths. */}
+              <XAxis type="number" dataKey="value" hide domain={["dataMin", "dataMax"]} />
+              <YAxis type="number" dataKey="sharpe" hide domain={["dataMin", "dataMax"]} />
+              {/* THE BAR IS THE SHAPE. Three dots alone say nothing; three dots straddling
+                  the line that killed the candidate is the whole chart. extendDomain keeps
+                  the bar in frame even when every neighbour sits on one side of it. */}
+              {g.bindingBar != null && (
+                <ReferenceLine
+                  y={g.bindingBar}
+                  stroke={WARN}
+                  strokeDasharray="3 2"
+                  ifOverflow="extendDomain"
+                />
+              )}
+              <Scatter
+                data={pts.map((p) => ({ value: p.value, sharpe: p.sharpeExcess }))}
+                line={{ stroke: DIM, strokeWidth: 1 }}
+                shape="circle"
+                isAnimationActive={false}
+              >
+                {pts.map((p, i) => (
+                  <Cell
+                    key={i}
+                    fill={p.isBase ? SERIES : p.passed === false ? WARN : OK}
+                    r={p.isBase ? 4 : 3}
+                  />
+                ))}
+              </Scatter>
+            </ScatterChart>
+          ) : null,
+      };
+    },
+  },
+  {
+    label: "Beta Overlay",
+    view: (c, q) => <BetaPanel c={c} q={q} />,
+    thumb: (c, q) => {
+      const s = c.returns.series;
+      const spy = q.spy.series;
+      const r = c.returns.spyCorrelation;
+      return {
+        headline: r == null ? "—" : r.toFixed(4),
+        unit: "SPY correlation",
+        // Two ways to have no shape, and they are different facts: the candidate has no
+        // series, or SPY does. The correlation can still exist without either drawn.
+        reason: s ? (spy ? null : q.spy.reason) : c.returns.reason,
+        shape:
+          s && spy ? (
+            <LineChart data={betaData(s, spy)} margin={THUMB_MARGIN} accessibilityLayer={false}>
+              <Line
+                type="monotone"
+                dataKey="spy"
+                stroke={DIM}
+                strokeWidth={1}
+                dot={false}
+                strokeDasharray="3 2"
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="candidate"
+                stroke={SERIES}
+                strokeWidth={1.3}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          ) : null,
+      };
+    },
+  },
+];
+
+function ChartRegion({
+  c,
+  q,
+  chart,
+  setChart,
+}: {
+  c: QuantCandidate;
+  q: QuantPayload;
+  chart: number;
+  setChart: (i: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Client-side promotion only. The payload already holds all four charts for every
+          candidate, so switching is a view change and never a refetch.
+
+          The floor is what keeps the thumbnail row STILL. An honest state is a couple of
+          lines tall and a chart is 420, so without it the row a reader is clicking jumps
+          up under their cursor the moment they promote a chart with no series — and
+          arrowing across a candidate like acc_03_coinflip, where all four are empty, would
+          make the whole region flicker between two heights.
+
+          A FLEX column, not a grid: each Panel still carries the `gridArea` it needed under
+          the old 2x2 layout, and inside a grid container that stale name places the panel
+          into an implicit track — it renders half-width and off to one side. Flex ignores
+          gridArea, so the child variant is what stretches the panel to the floor. */}
+      <div className="flex flex-col [&>section]:flex-1" style={{ minHeight: CHART_H }}>
+        {CHARTS[chart].view(c, q)}
+      </div>
+
+      <div
+        role="group"
+        aria-label="Select chart"
+        // Arrows cycle. NUMBER KEYS ARE DELIBERATELY NOT BOUND: 1-4 already switch tabs at
+        // the app level, and that shortcut list is derived from TABS — binding them here
+        // would shadow navigation from inside one tab.
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          e.preventDefault();
+          const step = e.key === "ArrowRight" ? 1 : CHARTS.length - 1;
+          setChart((chart + step) % CHARTS.length);
+        }}
+        className="flex gap-2"
+      >
+        {CHARTS.map((ch, i) => {
+          const t = ch.thumb(c, q);
+          const on = i === chart;
+          return (
+            <button
+              key={ch.label}
+              type="button"
+              onClick={() => setChart(i)}
+              aria-pressed={on}
+              // The accessible name carries what the picture cannot: the headline number,
+              // or the reason there is no picture. The shape itself is aria-hidden.
+              aria-label={
+                t.reason
+                  ? `${ch.label} — unavailable: ${t.reason}`
+                  : `${ch.label} — ${t.headline} ${t.unit}`
+              }
+              title={t.reason ?? undefined}
+              // Border + background tint, the pattern this app already uses to mark a
+              // selected row (bg-blue/10 in the sidebar, the palette, and the candidate
+              // selector directly above). Not a side stripe.
+              className={`flex min-w-0 flex-1 basis-0 flex-col gap-1 rounded-sm border px-2.5 py-2 text-left transition-colors ${
+                on
+                  ? "border-blue-bright/50 bg-blue/10"
+                  : "border-border-dim hover:border-blue-bright/40"
+              }`}
+            >
+              {/* The label brightens on selection, the way the candidate selector above
+                  brightens its own. Border-plus-tint alone is a 2.39:1 border over a tint
+                  that is barely above the base — the text step is what actually carries
+                  the state at a glance, and it is the same step the sibling control makes. */}
+              <span
+                className={`truncate font-rajdhani text-[length:var(--fs-meta)] font-semibold uppercase tracking-[0.15em] ${
+                  on ? "text-ink-cc" : "text-text-dim"
+                }`}
+              >
+                {ch.label}
+              </span>
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                <span className="shrink-0 font-jetbrains-mono text-[length:var(--fs-body)] text-ink-cc">
+                  {t.headline}
+                </span>
+                <span className="truncate font-jetbrains-mono text-[length:var(--fs-meta)] text-text-dim">
+                  {t.unit}
+                </span>
+              </span>
+              <div style={{ height: THUMB_H }} aria-hidden>
+                {t.shape ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    {t.shape}
+                  </ResponsiveContainer>
+                ) : (
+                  // The honest state at thumbnail scale. The reason is on hover and in the
+                  // accessible name; the full explanation is in the expanded view.
+                  <div className="flex h-full items-center justify-center font-jetbrains-mono text-[length:var(--fs-body)] text-text-dim">
+                    —
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- the tab section ---------- */
 
 export default function QuantCharts({ q }: { q: QuantPayload }) {
@@ -450,6 +744,11 @@ export default function QuantCharts({ q }: { q: QuantPayload }) {
   // full artifact behind it. Deriving also self-heals when a selected id disappears from a
   // later artifact.
   const [picked, setPicked] = useState<string | null>(null);
+  // Which chart is expanded. Held HERE rather than inside ChartRegion so that changing the
+  // candidate — or stepping through a draft-only family, which unmounts the region because
+  // it has no charts at all — keeps the reader on the chart they were reading. Index 0 is
+  // the equity curve, the default.
+  const [chart, setChart] = useState(0);
   // acc_05_ts_trend is the default because it is the only candidate that ever beat the
   // benchmark and the only one that reached gate 4 — the most instructive failure here.
   const fallback =
@@ -551,12 +850,7 @@ export default function QuantCharts({ q }: { q: QuantPayload }) {
           <EmptyNote text="no candidate selected" />
         </div>
       ) : (
-        <div className="grid gap-3" style={GRID_STYLE}>
-          <EquityPanel c={c} q={q} />
-          <UnderwaterPanel c={c} />
-          <CliffPanel c={c} />
-          <BetaPanel c={c} q={q} />
-        </div>
+        <ChartRegion c={c} q={q} chart={chart} setChart={setChart} />
       )}
 
       {q.downsample && (
