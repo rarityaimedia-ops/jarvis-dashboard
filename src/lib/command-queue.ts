@@ -1,3 +1,4 @@
+import "server-only";
 import path from "path";
 
 // Command-bus queue access. The dashboard NEVER holds a credential and never executes a
@@ -8,7 +9,16 @@ import path from "path";
 // The ONE queue-root constant. Every queue path is path.join'd from this, resolved, and
 // verified to still live under it before any fs call. CONDUCTOR_PATH is a path only - no
 // credential is ever involved (mirrors the existing VAULT_PATH pattern).
-const CONDUCTOR = path.resolve(process.env.CONDUCTOR_PATH ?? "");
+//
+// Unset must throw, not degrade: `?? ""` would resolve to the dashboard's own cwd, and a
+// queue that silently accepts and drops jobs has no honest offline state (mirrors the
+// explicit-throw discipline in trading-db.ts).
+if (!process.env.CONDUCTOR_PATH) {
+  throw new Error(
+    "CONDUCTOR_PATH missing from .env.local - must point at the conductor root directory"
+  );
+}
+const CONDUCTOR = path.resolve(process.env.CONDUCTOR_PATH);
 export const QUEUE_ROOT = path.join(CONDUCTOR, "queue");
 
 const INBOX = path.join(QUEUE_ROOT, "inbox");
@@ -44,13 +54,8 @@ export function isAllowlistedSkill(skill: string): boolean {
   return Object.prototype.hasOwnProperty.call(SKILL_ALLOWLIST, skill);
 }
 
-// The dashboard's OWN SLA table (its own copy — it never reads the conductor's,
-// same double-allowlist discipline as SKILL_ALLOWLIST). Freshness dots and the
-// health verdict use this. Adding a skill's SLA is ONE line here.
-export const SKILL_SLA_HOURS: Record<string, number> = {
-  "intake-stats": 24,
-  "quant-stats": 24,
-};
+// SKILL_SLA_HOURS moved to skill-sla.ts (pure data, no fs/path/crypto) so client code
+// (verdict.ts) can import it directly without pulling in this file's "server-only" guard.
 
 /** Confine a path to QUEUE_ROOT; throws if it escapes. Mirrors vault.ts#vaultPath. */
 function confineToQueue(p: string): string {

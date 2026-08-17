@@ -1,3 +1,4 @@
+import "server-only";
 import postgres from "postgres";
 
 // Read-only Supabase role (dashboard_ro). Singleton across dev HMR reloads

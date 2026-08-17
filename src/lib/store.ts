@@ -84,6 +84,7 @@ export type AgentSkill = {
 };
 export type AgentsPayload = {
   online: boolean;
+  configured: boolean;
   generatedAt: string | null;
   skills: AgentSkill[];
 };

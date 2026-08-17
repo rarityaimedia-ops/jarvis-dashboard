@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
+import path from "path";
 import { randomUUID } from "crypto";
 import {
   isAllowlistedSkill,
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
   // Atomic write: temp then rename, so the watcher never observes a partial file.
   const dest = inboxPath(job_id);
   const tmp = `${dest}.tmp`;
+  // The watcher creates inbox/ on every invocation, but it may never have run yet. Safe
+  // to do here now that CONDUCTOR_PATH is guaranteed set (command-queue.ts throws at
+  // module load otherwise) - this can only ever create directories under the queue root.
+  await fs.mkdir(path.dirname(dest), { recursive: true });
   await fs.writeFile(tmp, JSON.stringify(job, null, 2), "utf8");
   await fs.rename(tmp, dest);
 

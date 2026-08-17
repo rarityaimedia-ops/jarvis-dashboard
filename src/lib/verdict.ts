@@ -1,5 +1,8 @@
 import type { Health, AgentsPayload, RunsPayload } from "@/lib/store";
-import { SKILL_SLA_HOURS } from "@/lib/command-queue";
+// Imported directly from skill-sla.ts, NOT @/lib/command-queue - this file is bundled
+// client-side, and command-queue.ts throws at module load when CONDUCTOR_PATH (a
+// server-only env var, always unset in the browser) is missing.
+import { SKILL_SLA_HOURS } from "@/lib/skill-sla";
 
 // The single health verdict. Pure so it can be reasoned about and forced in
 // tests (V7). OPERATIONAL requires ALL of: hermes alive, graph rebuild fresh

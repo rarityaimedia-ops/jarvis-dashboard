@@ -182,6 +182,7 @@ function AiCoreOverview() {
 function IntelFeed() {
   const agents = useJarvis((s) => s.agents);
   const online = agents?.online ?? false;
+  const configured = agents ? agents.configured : true;
 
   const lines: { level: "warn" | "info"; text: string }[] = [];
   if (online) {
@@ -250,7 +251,10 @@ function IntelFeed() {
           </ul>
         </>
       ) : (
-        <EmptyNote text="— CONDUCTOR OFFLINE —" sub="summary unavailable" />
+        <EmptyNote
+          text={configured ? "— CONDUCTOR OFFLINE —" : "— CONDUCTOR NOT CONFIGURED —"}
+          sub={configured ? "summary unavailable" : "CONDUCTOR_SUMMARY_PATH is unset"}
+        />
       )}
     </Panel>
   );
@@ -367,8 +371,17 @@ function useRunJob(skill: AgentSkill) {
         body: JSON.stringify({ skill: skill.name, args: {} }),
       });
       if (!res.ok) {
-        setPhase("err");
-        setErrText("rejected by dashboard");
+        // 400 is the allowlist/args refusal the Wave 1 spec reserves REJECTED for; any
+        // other failure (e.g. a 500 from a filesystem error) is a real ERR, not a refusal.
+        let message = "dashboard error";
+        try {
+          const data = await res.json();
+          if (typeof data?.error === "string") message = data.error;
+        } catch {
+          // no JSON body — keep the generic message
+        }
+        setPhase(res.status === 400 ? "rejected" : "err");
+        setErrText(message);
         return;
       }
       const data = await res.json();

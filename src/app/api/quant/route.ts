@@ -146,6 +146,10 @@ export type QuantTotals = {
 };
 export type QuantPayload = {
   online: boolean;
+  // Distinguishes "the env var is unset" from "the var is set but the artifact is missing" -
+  // these are different facts (misconfigured vs. quant-stats-not-run) and the Wave 1 design
+  // language requires absence to be distinguishable.
+  configured: boolean;
   generatedAt: string | null;
   // Computed HERE rather than in the component, for the same reason /api/agents computes
   // its own: reading the clock during render is impure and React 19 rejects it outright.
@@ -179,8 +183,26 @@ function freshness(generatedAt: string | null): "ok" | "warn" {
   return Number.isNaN(age) || age > STALE_AFTER_MS ? "warn" : "ok";
 }
 
+const NOT_CONFIGURED: QuantPayload = {
+  online: false,
+  configured: false,
+  generatedAt: null,
+  freshness: "warn",
+  schemaVersion: null,
+  degraded: null,
+  candidates: [],
+  gates: [],
+  lookahead: { detective: [], preventative: [], note: null },
+  holdout: null,
+  totals: null,
+  downsample: null,
+  benchmark: null,
+  spy: { series: null, reason: null },
+  draftFamilies: [],
+};
 const OFFLINE: QuantPayload = {
   online: false,
+  configured: true,
   generatedAt: null,
   freshness: "warn",
   schemaVersion: null,
@@ -310,7 +332,8 @@ function shapeDefences(v: unknown): QuantDefence[] {
 }
 
 async function readArtifact(): Promise<QuantPayload> {
-  if (!CONFIGURED || !CANON) return OFFLINE;
+  if (!CONFIGURED) return NOT_CONFIGURED;
+  if (!CANON) return OFFLINE;
 
   // Re-canonicalize the full configured path on every read. If the file is a
   // symlink/junction resolving outside the configured location, reject it.
@@ -336,6 +359,7 @@ async function readArtifact(): Promise<QuantPayload> {
 
   return {
     online: true,
+    configured: true,
     generatedAt,
     freshness: freshness(generatedAt),
     schemaVersion: num(parsed.journal_schema_version),

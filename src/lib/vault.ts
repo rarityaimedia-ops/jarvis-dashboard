@@ -1,8 +1,16 @@
+import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
 import { spawn } from "child_process";
 
-export const VAULT = path.resolve(process.env.VAULT_PATH ?? "");
+// Unset must throw, not degrade: `?? ""` would resolve to the dashboard's own cwd (same
+// discipline as CONDUCTOR_PATH in command-queue.ts).
+if (!process.env.VAULT_PATH) {
+  throw new Error(
+    "VAULT_PATH missing from .env.local - must point at the vault root directory"
+  );
+}
+export const VAULT = path.resolve(process.env.VAULT_PATH);
 
 /** Resolve a path inside the vault; throws if it escapes the vault root. */
 export function vaultPath(rel: string): string {

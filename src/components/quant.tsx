@@ -113,11 +113,17 @@ function KillLog({ q }: { q: QuantPayload }) {
               ? "journal not readable — no candidates read"
               : q.online
                 ? "no candidates journalled yet"
-                : "quant artifact offline"
+                : q.configured
+                  ? "quant artifact offline"
+                  : "quant artifact not configured"
           }
           sub={
             q.degraded?.detail ??
-            (q.online ? "the gauntlet has not recorded a candidate" : "quant-stats has not run")
+            (q.online
+              ? "the gauntlet has not recorded a candidate"
+              : q.configured
+                ? "quant-stats has not run"
+                : "QUANT_STATS_PATH is unset")
           }
         />
       ) : (
@@ -425,7 +431,11 @@ export default function QuantPanel() {
             !data.online || stale ? "text-warn" : "text-text-dim"
           }`}
         >
-          {data.online ? `generated ${stamp(data.generatedAt)}` : "artifact offline"}
+          {data.online
+            ? `generated ${stamp(data.generatedAt)}`
+            : data.configured
+              ? "artifact offline"
+              : "artifact not configured"}
           {data.online && stale && " · past 24h SLA"}
         </span>
       </div>

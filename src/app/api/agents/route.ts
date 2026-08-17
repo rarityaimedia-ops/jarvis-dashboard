@@ -41,11 +41,26 @@ type AgentSkill = {
 };
 type AgentsPayload = {
   online: boolean;
+  // Distinguishes "the env var is unset" from "the var is set but the file is missing" -
+  // these are different facts (misconfigured vs. conductor-not-running) and the Wave 1
+  // design language requires absence to be distinguishable.
+  configured: boolean;
   generatedAt: string | null;
   skills: AgentSkill[];
 };
 
-const OFFLINE: AgentsPayload = { online: false, generatedAt: null, skills: [] };
+const NOT_CONFIGURED: AgentsPayload = {
+  online: false,
+  configured: false,
+  generatedAt: null,
+  skills: [],
+};
+const OFFLINE: AgentsPayload = {
+  online: false,
+  configured: true,
+  generatedAt: null,
+  skills: [],
+};
 
 let cache: { at: number; payload: AgentsPayload } | null = null;
 const TTL_MS = 5000;
@@ -98,7 +113,8 @@ function shapeSkill(s: RawSkill): AgentSkill {
 }
 
 async function readSummary(): Promise<AgentsPayload> {
-  if (!CONFIGURED || !CANON) return OFFLINE;
+  if (!CONFIGURED) return NOT_CONFIGURED;
+  if (!CANON) return OFFLINE;
 
   // Re-canonicalize the full configured path on every read. If the file is a
   // symlink/junction resolving outside the configured location, reject it.
@@ -120,6 +136,7 @@ async function readSummary(): Promise<AgentsPayload> {
     : [];
   return {
     online: true,
+    configured: true,
     generatedAt:
       typeof parsed.generated_at === "string" ? parsed.generated_at : null,
     skills,
