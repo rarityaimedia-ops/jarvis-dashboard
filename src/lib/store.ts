@@ -107,6 +107,16 @@ export type RunsPayload = {
 export type AlertItem = { msg: string; level: "warn" | "err"; kind?: "hermes-down" };
 export type HermesStartPhase = "idle" | "starting" | "failed";
 
+// Watcher-computed verdict (Wave 1E Phase 4), surfaced by /api/verdict. The watcher
+// is the single source of truth for tone/text; the dashboard never re-derives it.
+export type Verdict = {
+  status: "OPERATIONAL" | "DEGRADED" | "UNKNOWN";
+  tone: "ok" | "warn" | "err";
+  text: string;
+  reason: string | null;
+  evaluatedAt: string | null;
+};
+
 type JarvisState = {
   health: Health | null;
   vitals: Vitals | null;
@@ -120,6 +130,7 @@ type JarvisState = {
   costsError: string | null;
   agents: AgentsPayload | null;
   runs: RunsPayload | null;
+  verdict: Verdict | null;
   alerts: AlertItem[];
   alertHistory: AlertEvent[];
   mode: GraphMode;
@@ -159,6 +170,7 @@ export const useJarvis = create<JarvisState>()(
       costsError: null,
       agents: null,
       runs: null,
+      verdict: null,
       alerts: [],
       alertHistory: [],
       mode: "brain",

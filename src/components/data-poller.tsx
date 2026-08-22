@@ -17,6 +17,7 @@ import {
   type CostsPayload,
   type AgentsPayload,
   type RunsPayload,
+  type Verdict,
 } from "@/lib/store";
 import { setAudioMuted } from "@/lib/audio";
 
@@ -64,6 +65,7 @@ export default function DataPoller() {
   );
   const { data: agents } = useSWR<AgentsPayload>("/api/agents", fetcher, live);
   const { data: runs } = useSWR<RunsPayload>("/api/runs", fetcher, live);
+  const { data: verdict } = useSWR<Verdict>("/api/verdict", fetcher, live);
 
   useEffect(() => {
     if (health) {
@@ -105,6 +107,9 @@ export default function DataPoller() {
   useEffect(() => {
     if (runs) set({ runs });
   }, [runs, set]);
+  useEffect(() => {
+    if (verdict) set({ verdict });
+  }, [verdict, set]);
 
   return null;
 }
